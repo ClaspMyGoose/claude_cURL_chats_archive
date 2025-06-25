@@ -3,6 +3,12 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# mine 
+.venv/
+todo.txt
+curl_command.txt
+claude_chats.json
+
 # C extensions
 *.so
 
