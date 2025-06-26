@@ -9,6 +9,8 @@ todo.txt
 curl_command.txt
 claude_chats.json
 
+app/__pycache__/
+
 # C extensions
 *.so
 
