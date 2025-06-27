@@ -8,8 +8,10 @@ __pycache__/
 todo.txt
 curl_command.txt
 claude_chats.json
-
+outputs/
+env.py
 app/__pycache__/
+.DS_Store
 
 # C extensions
 *.so

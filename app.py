@@ -10,6 +10,7 @@ from app import api_client
 from app import data_formatter
 
 def main():
+
     """Main application entry point"""
     print("=== Claude Chat Extractor (Modular Version) ===\n")
     
@@ -40,7 +41,7 @@ def main():
     print(f"cURL command validated")
     
     
-    # Execute API call
+    # * GET CHAT DATA 
     response = api_client.get_chat_conversations(curl_args, limit=100)
     
     if not response['success']:
@@ -49,37 +50,48 @@ def main():
             print(f"   Details: {response['stderr']}")
         return
     
-    # Transform raw data
+    # * STRUCTURES CHATS, also determines most recent 
     raw_chats = response['data']
-    formatted_chats = data_formatter.transform_raw_chats(raw_chats)
+    last_convo_uuid, formatted_chats = data_formatter.transform_raw_chats(raw_chats)
     
     
-    structured_chats = []
+    cur_dt = data_formatter.get_current_CST_timestamp()
+    conversations = {}
+    last_convo = None
+
 
     for chat in formatted_chats: 
-        
+    
         chat_obj = {}
 
         chat_obj['name'] = chat['name']
         chat_obj['uuid'] = chat['uuid']
-        # TODO fx calls here 
+        # * GET MESSAGE DATA, STRUCTURES MESSAGES
         chat_obj['msg_list'] = generate_message_list_from_uuid(chat['uuid'])
-        # TODO figure out how to hash here 
-        chat_obj['msg_#'] = 'Nonsense'
+        chat_obj['arch_dt'] = cur_dt
         chat_obj['create_dt'] = chat['created_at']
         chat_obj['update_dt'] = chat['updated_at']
-        chat_obj['file_name'] = f'{chat['updated_at']}_{chat['uuid']}_{chat['name']}'
+        chat_obj['file_name'] = f'{chat['bucket']}_{chat['name']}'
 
-        structured_chats.append(chat_obj)
+        bucket = chat['bucket']
+        dict_key_exists = conversations.get(bucket)
+
+        if chat_obj['uuid'] == last_convo_uuid:
+            last_convo = chat_obj 
+
+        if not dict_key_exists: 
+            conversations[bucket] = [chat_obj]
+        else:
+            conversations[bucket].append(chat_obj)
 
 
+    convos = build_master_object(last_convo, conversations)   
 
-    # Display results
-    data_formatter.print_chat_summary(structured_chats)
+
     
     # Save to file
-    if data_formatter.save_chats_to_file(structured_chats):
-        print("Chats saved to claude_chats.json")
+    if data_formatter.save_chats_to_file(cur_dt, convos):
+        print("Chats saved to outputs/ in project folder")
     
 
 
@@ -98,6 +110,17 @@ def generate_message_list_from_uuid(uuid):
         return []
 
     return messages
+
+
+def build_master_object(last_convo, conversations): 
+    
+    master_obj = {
+        'last_convo': last_convo,
+        'conversations': conversations
+    }
+
+    return master_obj
+
 
 if __name__ == "__main__":    
     main()

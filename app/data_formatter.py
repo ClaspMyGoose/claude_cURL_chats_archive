@@ -7,6 +7,8 @@ Handles timestamp formatting and data transformation
 from datetime import datetime
 from zoneinfo import ZoneInfo
 import json
+from pathlib import Path 
+from env import directory_prefix
 
 def format_timestamp(ts_string):
     """
@@ -25,6 +27,11 @@ def format_timestamp(ts_string):
     except Exception as e:
         print(f"Error formatting timestamp {ts_string}: {e}")
         return ts_string
+    
+def get_current_CST_timestamp(): 
+    """Get current timestamp in CST formatted as 'YYYY-MM-DD H:MMAM/PM'"""
+    cst_now = datetime.now(ZoneInfo('America/Chicago'))
+    return cst_now.strftime('%Y-%m-%d %-I:%M%p')
 
 def transform_raw_chats(raw_chats):
     """
@@ -38,20 +45,38 @@ def transform_raw_chats(raw_chats):
     """
     cleaned_chats = []
     
+
+    most_recent_chat = None 
+    most_recent_ts = None 
+
     for chat in raw_chats:
+
         try:
             cleaned_chat = {
                 'name': chat['name'], 
                 'uuid': chat['uuid'],
                 'created_at': format_timestamp(chat['created_at']),
-                'updated_at': format_timestamp(chat['updated_at'])
+                'updated_at': format_timestamp(chat['updated_at']),
+                'bucket': format_timestamp(chat['updated_at'])[:10]
             }
             cleaned_chats.append(cleaned_chat)
         except KeyError as e:
             print(f"Warning: Missing key {e} in chat data: {chat}")
             continue
-    
-    return cleaned_chats
+            
+
+        try: 
+            
+            if most_recent_chat is None or chat['updated_at'] > most_recent_ts:
+                most_recent_ts = chat['updated_at']
+                most_recent_chat = chat['uuid']
+        except Exception as e: 
+            print(f'Issue saving most recent conversation: {e}')
+
+
+
+
+    return (most_recent_chat, cleaned_chats)
 
 
 
@@ -96,7 +121,7 @@ def parse_message(message_list):
     for single_message_obj in message_list:
         return single_message_obj['text']
 
-def save_chats_to_file(chats, filename='claude_chats.json'):
+def save_chats_to_file(current_str_datetime, chats, directory_prefix='../outputs/'):
     """
     Save chat data to JSON file
     
@@ -107,12 +132,16 @@ def save_chats_to_file(chats, filename='claude_chats.json'):
     Returns:
         bool: True if successful, False otherwise
     """
+
+
+    filepath = get_output_path(current_str_datetime)
+
     try:
-        with open(filename, 'w') as f:
+        with open(filepath, 'w') as f:
             json.dump(chats, f, indent=2)
         return True
     except Exception as e:
-        print(f"Error saving to {filename}: {e}")
+        print(f"Error saving to {filepath}: {e}")
         return False
 
 def print_chat_summary(chats):
@@ -139,3 +168,10 @@ def print_chat_summary(chats):
         print(chat['file_name'])
         print()
 
+
+def get_output_path(current_datetime): 
+
+    home = Path.home()
+    path = home / directory_prefix[0] / directory_prefix[1] / directory_prefix[2] / directory_prefix[3]
+    filepath = path / f'{current_datetime}_claudeArchive.json'
+    return filepath 
